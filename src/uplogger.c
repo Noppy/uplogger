@@ -1,13 +1,8 @@
-/*
- * Uplogger
- *
- *
- *
- *
- *
- *
+/* Uplogger
+ * Copyright(C) 2012 N.Fujita All rights reserved. 
+ *  
+ * - Client library modules
  */
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,8 +22,6 @@
 
 #define  FALSE  0
 #define  TRUE   1
-
-
 
 
 /**********************************************************************

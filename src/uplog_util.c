@@ -1,3 +1,9 @@
+/* Uplogger
+ * Copyright(C) 2012 N.Fujita All rights reserved.
+ *
+ * - Common utilities
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

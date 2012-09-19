@@ -1,7 +1,7 @@
-/*
- * UpLogger - UP logger daemon
- *            Common utilities
+/* Uplogger
+ * Copyright(C) 2012 N.Fujita All rights reserved.
  *
+ * - Common utilities
  */
 
 #include <syslog.h>

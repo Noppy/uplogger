@@ -1,3 +1,9 @@
+/* Uplogger
+ * Copyright(C) 2012 N.Fujita All rights reserved.
+ *
+ * - Server daemon
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,11 +19,11 @@
 #include "uplog_common.h"
 #include "uplog_util.h"
 
-#define  LOGFILE	       "/home/fujita/uplogger/uplog.log"
 
 #define  PROGRAMNAME       "uplogd"
 #define  VERSION           "0.1"
 #define  AUTHOR            "Written by N.Fujita."
+
 
 #define  DATA_LENGTH       256
 
@@ -358,7 +364,7 @@ int main(int argc, char **argv)
 
 	
 	/* set enviroments */
-	setlocale(LC_ALL, "");
+	(void)setlocale(LC_ALL, "C");
 
 
 	/* Parse the command line. */
@@ -393,9 +399,6 @@ int main(int argc, char **argv)
 	}
 
 
-
-
-
 	/* initalize process for daemon */
 	if( param.daemon ){
 		pid = do_daemon( !util_param.debug );
@@ -408,6 +411,11 @@ int main(int argc, char **argv)
 			goto exit;
 		}
 	}
+
+
+	/*    */
+	
+
 
 	/* main routine */
 	ret = do_logging();

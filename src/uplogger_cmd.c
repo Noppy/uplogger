@@ -1,3 +1,8 @@
+/* Uplogger
+ * Copyright(C) 2012 N.Fujita All rights reserved.
+ *
+ * - logging command
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
