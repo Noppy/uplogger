@@ -41,6 +41,7 @@ struct struct_global_param{
 	int  daemon;
 
 	char logfile[DATA_LENGTH];
+	char pidfile[DATA_LENGTH];
 
 }param;
 
@@ -64,7 +65,6 @@ static void usage()
 
 /*
  * create_UNIX_socket:
- *
  * 
  */
 static int create_UNIX_socket()
@@ -263,6 +263,94 @@ fail:
 
 }
 
+/* check_pid:
+ * 
+ *  pid does not exist: ret = -1
+ *  pid exists        : ret = pid
+ */
+pid_t check_pid()
+{
+
+	FILE *file;
+	pid_t  pid;
+
+	/* open the pid file for read */
+	if( (file = fopen( param.pidfile, "r")) == NULL ){
+		debug("Cannot open the pidfile(%s): %s", param.pidfile, strerror(errno));
+		goto fail;
+	}
+
+	/* read pid and close the file */
+	(void)fscanf(file, "%d", &pid);
+	(void)fclose(file);
+
+	/* check pid */
+	if( pid <= 0 || pid == getpid() ){
+		err("pid is invalid or myself(pid=%d)", pid);
+		goto fail;
+	}
+
+	/* check the process */
+	if( kill( pid, 0 ) && errno == ESRCH ){
+		/* not found process */
+		goto fail;
+	}
+
+	/* pid exists */
+	return(pid);
+
+fail:
+	return(-1);
+}
+
+
+/* write_pid:
+ *
+ * Writes the pid to the specified file.
+ *    success: ret = pid
+ *    failure: ret = -1
+ */
+pid_t write_pid()
+{
+	int   fd;
+	FILE  *file;
+	pid_t pid;
+
+	/* open the pid file. */
+	fd = open( param.pidfile, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH );
+	if( fd == -1 ){
+		err("Cannot open or create pidfile(%s): %s", param.pidfile, strerror(errno));
+		goto fail;
+	}
+	if( (file = fdopen(fd, "w") ) == NULL ){;
+		err("Cannot open or create pidfile(%s): %s", param.pidfile, strerror(errno));
+		goto fail;
+	}
+
+	/* get pid */
+	pid = getpid();
+
+	/* write pid */
+	if( fprintf(file, "%d\n", pid) == 0 ){
+		err("Cannot write pid: %s", strerror(errno));
+		goto fail;
+	}
+	(void)fflush(file);
+
+	/* close the pid file。*/
+	(void)fclose(file);
+
+	return(pid);
+
+fail:
+	(void)close(fd);
+	(void)unlink(param.pidfile);
+	return(-1);
+
+}
+
+
+
 
 static pid_t do_daemon(int close_interface)
 {
@@ -361,6 +449,7 @@ int main(int argc, char **argv)
 
 	param.daemon     = TRUE;
 	strncpy( param.logfile, LOGFILE, DATA_LENGTH);
+	strncpy( param.pidfile, PIDFILE, DATA_LENGTH);
 
 	
 	/* set enviroments */
@@ -401,6 +490,16 @@ int main(int argc, char **argv)
 
 	/* initalize process for daemon */
 	if( param.daemon ){
+
+		/* check */
+		if( check_pid() > 0 ){
+			err("the pid file and pid alread exist");
+			ret = EXIT_FAILURE;
+			goto exit;
+		}
+
+		/* fork */
+		debug("Fork a daemon process");
 		pid = do_daemon( !util_param.debug );
 		if( pid < 0){
 			ret = EXIT_FAILURE;
@@ -410,10 +509,13 @@ int main(int argc, char **argv)
 			ret = EXIT_SUCCESS;
 			goto exit;
 		}
+
+		/* write the pid file */
+		debug("Write the pid to the pid file(%s)",param.pidfile);
+		(void)write_pid();
+
 	}
 
-
-	/*    */
 	
 
 
