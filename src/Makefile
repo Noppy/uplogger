@@ -13,7 +13,7 @@ uplogd: uplogd.o uplog_util.o
 uplogger: uplogger_cmd.o uplogger.o uplog_util.o
 	${CC} ${LDFLAGS} -o uplogger uplogger_cmd.o uplogger.o uplog_util.o
 
-uplogd.o: uplogd.c uplog_common.h
+uplogd.o: uplogd.c uplog_common.h uplogd.h
 	${CC} -c uplogd.c
 
 uplogger_cmd.o: uplogger_cmd.c uplogger.h
