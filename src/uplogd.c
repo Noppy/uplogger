@@ -493,7 +493,7 @@ int main(int argc, char **argv)
 	if( param.daemon ){
 
 		/* check */
-		if( check_pid() > 0 ){
+		if( check_pid(param.pidfile) > 0 ){
 			err("the pid file and pid alread exist");
 			ret = EXIT_FAILURE;
 			goto exit;
@@ -513,8 +513,11 @@ int main(int argc, char **argv)
 
 		/* write the pid file */
 		debug("Write the pid to the pid file(%s)",param.pidfile);
-		(void)write_pid();
-
+		if( write_pid(param.pidfile) < 0  ){
+			err("Cannot write the pid file.");
+			ret = EXIT_FAILURE;
+			goto exit;
+		}
 	}
 
 	
