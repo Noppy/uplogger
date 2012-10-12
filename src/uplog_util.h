@@ -20,3 +20,6 @@ struct struct_util_param{
 
 extern void printlog(int priority, char *format, ...);
 
+
+extern pid_t check_pid(char *pidfile_path);
+extern pid_t write_pid(char *pidfile_path);
