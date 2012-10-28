@@ -62,7 +62,8 @@ static void getheader( char *head, int size )
 /**********************************************************************
  * func: uplogger client(the core function)
  *
- * args: add_header = 1: Log header message, 0:don't header message
+ * args: sockfile = NULL: default path(SOCKET_FILE) other: used specifed path
+ *       add_header = 1: Log header message, 0:don't header message
  *       syslog     = 1: Log err to syslog,  0:Log err to stderr
  *       char *format ... = logging message
  * ret : 
@@ -70,7 +71,7 @@ static void getheader( char *head, int size )
  *      -1  = failure 
  * ********************************************************************
  */
-int uplogger( int add_header, int syslog, char *format, ... )
+int uplogger( char *sockfile, int add_header, int syslog, char *format, ... )
 {
 
 	va_list ap;
@@ -139,8 +140,11 @@ int uplogger( int add_header, int syslog, char *format, ... )
 
 	/* construct the socket address */
 	addr.sun_family = AF_UNIX;
-	strcpy(addr.sun_path, SOCKET_FILE);
-
+	if( sockfile == NULL ){
+		strcpy(addr.sun_path, SOCKET_FILE);
+	}else{
+		strcpy(addr.sun_path, sockfile);
+	}
 	/* send to message */
 	ret = sendto(sockfd, msg, size, 0, 
 	             (struct sockaddr *)&addr, sizeof(addr) );

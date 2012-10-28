@@ -18,10 +18,14 @@ int main(int argc, char **argv)
 {
 
 	char msg[BUFFER_LENGTH];
+	char *sock[BUFFER_LENGTH];
 	int  ret;
 
 	argc--;
 	argv++;
+
+
+
 
 	/* concatenate the arguments(separated by blank) */
 	memset(msg, 0, BUFFER_LENGTH);
@@ -36,7 +40,7 @@ int main(int argc, char **argv)
 		}	
 	}
 
-	ret = uplogger(1, 1, "%s", msg);
+	ret = uplogger(NULL, 1, 1, "%s", msg);
 
 	if( ret ){
 		exit(EXIT_SUCCESS);
