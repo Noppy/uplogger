@@ -11,6 +11,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <locale.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -25,8 +26,8 @@
 #define  VERSION           "0.1"
 #define  AUTHOR            "Written by N.Fujita."
 
-
-#define  DATA_LENGTH       256
+#define  CONFIG_LINE_LENGTH  16384
+#define  CONFIG_DATA_LENGTH  256
 
 #define  BUFFER_LENGTH     MESSAGE_LENGTH + 4
 #define  LOGMES_MAX_RETRY  3
@@ -38,11 +39,13 @@
 
 struct struct_global_param{
 
-	char *program;
+	//char *program;
 	int  daemon;
-
-	char logfile[DATA_LENGTH];
-	char pidfile[DATA_LENGTH];
+	
+	char configfile[CONFIG_DATA_LENGTH];
+	char logfile[CONFIG_DATA_LENGTH];
+	char pidfile[CONFIG_DATA_LENGTH];
+	char sockfile[CONFIG_DATA_LENGTH];
 
 }param;
 
@@ -57,10 +60,12 @@ static void version()
 
 static void usage()
 {
-	printf( "%s [-dFh]\n", PROGRAMNAME );
-	printf( "    -d: Print debug messages to stdout\n" );
-	printf( "    -F: Foreground mode\n" );
-	printf( "    -h: This help\n" );
+	printf( "%s [-d] [-F] [-h] [-v] [-f CONFIGFILE]\n", PROGRAMNAME );
+	printf( "    -d: Debug mode(Print debug messages to stdout).\n" );
+	printf( "    -F: Foreground mode.\n" );
+	printf( "    -h: This help.\n" );
+	printf( "    -v: Output version.\n" );
+	printf( "    -f CONFIGFILE: Specify an configuration file.\n" );
 }
 
 
@@ -68,7 +73,7 @@ static void usage()
  * create_UNIX_socket:
  * 
  */
-static int create_UNIX_socket()
+static int create_UNIX_socket(char *socketfile)
 {
 	int    sockfd;
 	struct sockaddr_un addr;
@@ -78,7 +83,7 @@ static int create_UNIX_socket()
 	memset( (char *)&addr, 0, sizeof(addr) );
 
 	/* remove the socket file, if it exists. */
-	(void) unlink(SOCKET_FILE);
+	(void) unlink( socketfile );
 
 	/* create the UNIX domain socket. */
 	sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
@@ -89,18 +94,18 @@ static int create_UNIX_socket()
 
 	/* bind the socket */
 	addr.sun_family = AF_UNIX;
-	strcpy(addr.sun_path, SOCKET_FILE);
+	strcpy(addr.sun_path, socketfile);
 
 	ret = bind(sockfd, (struct sockaddr *)&addr, sizeof(addr) );
 	if( ret < 0 ){
-		err("Cannot bind(%s): %s",SOCKET_FILE, strerror(errno));
+		err("Cannot bind(%s): %s", socketfile, strerror(errno));
 		goto fail;
 	}
 
 	/* change the socket file mode(mode = rw-rw-rw-) */
-	ret = chmod( SOCKET_FILE, 0666 );
+	ret = chmod( socketfile, 0666 );
 	if( ret < 0 ){
-		err("Cannot chmod(file=%s): %s", SOCKET_FILE, strerror(errno));
+		err("Cannot chmod(file=%s): %s", socketfile, strerror(errno));
 		goto fail;
 	}
 
@@ -205,7 +210,7 @@ static int do_logging()
 	int    ret;
 
 	/* Create the UNIX socket */
-	socketfd = create_UNIX_socket();
+	socketfd = create_UNIX_socket( param.sockfile );
 	if( socketfd < 0 ){ goto fail; }
 
 
@@ -264,91 +269,209 @@ fail:
 
 }
 
-/* check_pid:
+
+/*-------------------------------------------
+ * Load the configuration file
  * 
- *  pid does not exist: ret = -1
- *  pid exists        : ret = pid
- */
-pid_t check_pid()
-{
-
-	FILE *file;
-	pid_t  pid;
-
-	/* open the pid file for read */
-	if( (file = fopen( param.pidfile, "r")) == NULL ){
-		debug("Cannot open the pidfile(%s): %s", param.pidfile, strerror(errno));
-		goto fail;
-	}
-
-	/* read pid and close the file */
-	(void)fscanf(file, "%d", &pid);
-	(void)fclose(file);
-
-	/* check pid */
-	if( pid <= 0 || pid == getpid() ){
-		err("pid is invalid or myself(pid=%d)", pid);
-		goto fail;
-	}
-
-	/* check the process */
-	if( kill( pid, 0 ) && errno == ESRCH ){
-		/* not found process */
-		goto fail;
-	}
-
-	/* pid exists */
-	return(pid);
-
-fail:
-	return(-1);
-}
-
-
-/* write_pid:
  *
- * Writes the pid to the specified file.
- *    success: ret = pid
- *    failure: ret = -1
+ *
  */
-pid_t write_pid()
-{
-	int   fd;
-	FILE  *file;
-	pid_t pid;
+static char *skipspace(char *line){
 
-	/* open the pid file. */
-	fd = open( param.pidfile, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH );
-	if( fd == -1 ){
-		err("Cannot open or create pidfile(%s): %s", param.pidfile, strerror(errno));
-		goto fail;
+	char *pt;
+
+	pt = line;
+	while( isspace(*pt) ){
+		pt++;
 	}
-	if( (file = fdopen(fd, "w") ) == NULL ){;
-		err("Cannot open or create pidfile(%s): %s", param.pidfile, strerror(errno));
-		goto fail;
+	return(pt);
+}
+
+static char *trunkspace(char *line){
+
+	char *pt;
+
+	pt = line;
+	while( isspace(*pt) ){
+		pt--;
 	}
-
-	/* get pid */
-	pid = getpid();
-
-	/* write pid */
-	if( fprintf(file, "%d\n", pid) == 0 ){
-		err("Cannot write pid: %s", strerror(errno));
-		goto fail;
-	}
-	(void)fflush(file);
-
-	/* close the pid file。*/
-	(void)fclose(file);
-
-	return(pid);
-
-fail:
-	(void)close(fd);
-	(void)unlink(param.pidfile);
-	return(-1);
+	return(pt);
 
 }
+
+
+enum {
+	CONF_SEARCH_KEY,
+	CONF_KEY,
+	CONF_SEARCH_EQUAL,
+	CONF_EQUAL,
+	CONF_SEARCH_VALUE,
+	CONF_VALUE,
+	CONF_VALUE_QUOTATION,
+	CONF_COMPLETE,
+	CONF_NONE
+};
+
+static int load_config(char *config){
+
+	FILE *fp;
+	char line[CONFIG_LINE_LENGTH];
+	int  line_num = 0;
+
+	debug("Load Config: (debug)Open %s",config);
+	if( ( fp = fopen(config, "r") ) == NULL ){
+		err("Load Config: Cannot open the configuration file. file=%s err=%s", config, strerror(errno));
+		goto Failure;
+	}
+
+	debug("Load Config: (debug)Loading the configuration file.");
+	debug("Load Config: (debug)--------------------------------------------------------");
+	while( fgets(line, sizeof(line), fp)){
+
+		struct container{
+			char *pt;
+			int  length;
+		};
+		struct container key   = { NULL, 0 };
+		struct container value = { NULL, 0 };
+		char   *p;
+		char   mark;
+		int    state;
+
+		line_num++;
+
+		/* Skip space & set status */
+		p = skipspace(line);
+		state = CONF_SEARCH_KEY;
+
+		while( *p != '\n' && *p != '\0' ){
+
+			/* Comment */
+			if( *p == '#' && state != CONF_VALUE_QUOTATION ){
+				break;
+			}
+
+			/* Perse strings */
+			switch(state){
+
+			  case CONF_SEARCH_KEY:
+				if( ! isspace(*p) ){
+					key.pt = p;
+					key.length = 1;
+					state = CONF_KEY;
+				}
+				break;
+
+			  case CONF_KEY:
+				if( isspace(*p) ){
+					*p = '\0';
+					state = CONF_SEARCH_EQUAL;
+				}else if( *p == '=' ){
+					*p = '\0';
+					state = CONF_SEARCH_VALUE;
+				}else{
+					key.length++;
+				}
+				break;
+
+			  case CONF_SEARCH_EQUAL:
+				if( *p == '=' ){
+					state = CONF_SEARCH_VALUE;
+				}
+				break;
+
+			  case CONF_SEARCH_VALUE:
+				if( ! isspace(*p) ){
+					value.pt = p;
+					value.length = 1;
+					if( *p == '\"' || *p == '\'' ){
+						mark  = *p;
+						state = CONF_VALUE_QUOTATION;
+					}else{
+						state = CONF_VALUE;
+					}
+				}
+				break;
+
+			  case CONF_VALUE:
+				if( isspace(*p)){
+					*p    = '\0';
+					state = CONF_COMPLETE;
+				}else{
+					value.length++;
+				}
+					
+				break;
+
+			  case CONF_VALUE_QUOTATION:
+				if( *p == mark ){
+					*p    = '\0';
+					value.pt++;
+					state = CONF_COMPLETE;
+				}else{
+					value.length++;
+				}
+
+				break;
+
+			  default:
+				err("BUG()");
+				goto Failure;
+			}
+			if( state == CONF_COMPLETE ){
+				break;
+			}
+			p++;
+		}	
+
+		/* Check result */
+		if( state == CONF_SEARCH_KEY ){
+			continue;
+		}else if( state == CONF_VALUE ){
+			*p = '\0';
+		}else if( state != CONF_COMPLETE ){
+			goto SyntaxError;
+
+		}
+		debug("Load Config: (debug)Line:%-3d key=%s value=%s",line_num, key.pt, value.pt);
+
+
+		/* Search and set parameters */
+		if( strncmp( key.pt, "logfile", key.length) == 0 ){
+			strncpy( param.logfile, value.pt, CONFIG_DATA_LENGTH );
+		
+		}else if( strncmp( key.pt, "pidfile", key.length) == 0 ){
+			strncpy( param.pidfile, value.pt, CONFIG_DATA_LENGTH );
+
+		}else if( strncmp( key.pt, "sockfile", key.length) == 0){
+			strncpy( param.sockfile, value.pt, CONFIG_DATA_LENGTH );
+
+		}else{
+			err("Load Config: Unknown key(key=%s): line=%-3d file=%s", key.pt, line_num, config);
+		}
+
+	continue;
+
+	SyntaxError:
+		err(  "Load Config: Syntax error: line=%-3d file=%s", line_num, config);
+
+	}
+	debug("Load Config: (debug)--------------------------------------------------------");
+
+
+
+
+	return(TRUE);
+
+Failure:
+	return(FALSE);
+}
+
+
+
+
+
+
 
 
 
@@ -445,20 +568,23 @@ int main(int argc, char **argv)
 
 	ret = EXIT_FAILURE;
 
-	/* set default parameter */
+	/* Set for printlog function */
 	util_param.debug = FALSE;
-
-	param.daemon     = TRUE;
-	strncpy( param.logfile, LOGFILE, DATA_LENGTH);
-	strncpy( param.pidfile, PIDFILE, DATA_LENGTH);
-
 	
-	/* set enviroments */
+	/* Set default values to global_parameter */
+	memset( (char *)&param, 0, sizeof(param));
+	param.daemon     = TRUE;
+	strncpy( param.configfile, CONFFILE,    CONFIG_DATA_LENGTH-1);
+	strncpy( param.logfile,    LOGFILE,     CONFIG_DATA_LENGTH-1);
+	strncpy( param.pidfile,    PIDFILE,     CONFIG_DATA_LENGTH-1);
+	strncpy( param.sockfile,   SOCKET_FILE, CONFIG_DATA_LENGTH-1);
+
+	/* Set enviroments */
 	(void)setlocale(LC_ALL, "C");
 
 
 	/* Parse the command line. */
-	while( ( ch = getopt(argc, argv, "dFhv") ) != EOF ){
+	while( ( ch = getopt(argc, argv, "dFf:hv") ) != EOF ){
 		switch( (char)ch ){
 
 		  case 'd': /* Debug mode      */
@@ -469,13 +595,18 @@ int main(int argc, char **argv)
 		    param.daemon = FALSE;
 			break;
 
+		  case 'f': /* configuration file */
+			memset( param.configfile, 0, CONFIG_DATA_LENGTH );
+			strncpy(param.configfile, optarg,CONFIG_DATA_LENGTH-1);
+			break;
+
 		  case 'h': /* Help */
 		    usage();
 			ret = EXIT_SUCCESS;
 			goto exit;
 			break;  /* dummy */
 
-		  case 'v': /* Display version */
+		  case 'v': /* Output version */
 			version();
 			ret = EXIT_SUCCESS;
 			goto exit;
@@ -488,8 +619,28 @@ int main(int argc, char **argv)
 		}
 	}
 
+	/* Load the configuration file */
+	if( ! load_config( param.configfile ) ){
+		err("Cannot load the configuration file.");
+		ret = EXIT_FAILURE;
+		goto exit;
+	}
 
-	/* initalize process for daemon */
+	/* debug */
+	if( util_param.debug){
+		debug("-----------------------------------------------");
+		debug("<Parameter list>");
+		debug(" Debug mode  :%d", util_param.debug);
+		debug(" Deamon mode :%d", param.daemon);
+		debug(" Config file :%s", param.configfile);
+		debug(" Logfile     :%s", param.logfile);
+		debug(" Pidfile     :%s", param.pidfile);
+		debug(" Socketfile  :%s", param.sockfile);
+		debug("-----------------------------------------------");
+	}
+
+
+	/* Initalize process for daemon */
 	if( param.daemon ){
 
 		/* check */
@@ -519,8 +670,6 @@ int main(int argc, char **argv)
 			goto exit;
 		}
 	}
-
-	
 
 
 	/* main routine */

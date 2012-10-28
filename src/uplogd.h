@@ -8,4 +8,4 @@
 /* File path */
 #define LOGFILE       "/tmp/uplog.log"
 #define PIDFILE       "/var/run/uplogd.pid"
-
+#define CONFFILE      "/tmp/uplogd.conf"
