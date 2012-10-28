@@ -22,10 +22,6 @@
 #include "uplogd.h"
 
 
-#define  PROGRAMNAME       "uplogd"
-#define  VERSION           "0.1"
-#define  AUTHOR            "Written by N.Fujita."
-
 #define  CONFIG_LINE_LENGTH  16384
 #define  CONFIG_DATA_LENGTH  256
 
@@ -53,14 +49,14 @@ struct struct_global_param{
 
 static void version()
 {
-	printf( "%s version %s\n", PROGRAMNAME, VERSION );
+	printf( "%s version %s\n", SERVER_PROGRAMNAME, VERSION );
 	printf( "%s\n", AUTHOR );
 }
 
 
 static void usage()
 {
-	printf( "%s [-d] [-F] [-h] [-v] [-f CONFIGFILE]\n", PROGRAMNAME );
+	printf( "%s [-d] [-F] [-h] [-v] [-f CONFIGFILE]\n", SERVER_PROGRAMNAME );
 	printf( "    -d: Debug mode(Print debug messages to stdout).\n" );
 	printf( "    -F: Foreground mode.\n" );
 	printf( "    -h: This help.\n" );
@@ -133,7 +129,9 @@ static void logmessage(char *msg)
 		}
 		/* calculate length of the message */
 		size = strnlen( msg, BUFFER_LENGTH );
+
 		/* write message */
+		debug("LogMsg: %s", msg);
 		ret = write( log_fd, msg, size );
 		if( ret < 0 ){
 			/* occurred write error */
