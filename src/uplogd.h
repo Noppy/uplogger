@@ -6,6 +6,6 @@
 
 
 /* File path */
-#define LOGFILE       "/tmp/uplog.log"
+#define LOGFILE       "/var/log/uplog.log"
 #define PIDFILE       "/var/run/uplogd.pid"
-#define CONFFILE      "/tmp/uplogd.conf"
+#define CONFFILE      "/etc/uplogd.conf"

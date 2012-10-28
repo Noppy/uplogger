@@ -273,33 +273,8 @@ fail:
 /*-------------------------------------------
  * Load the configuration file
  * 
- *
- *
+ * ------------------------------------------
  */
-static char *skipspace(char *line){
-
-	char *pt;
-
-	pt = line;
-	while( isspace(*pt) ){
-		pt++;
-	}
-	return(pt);
-}
-
-static char *trunkspace(char *line){
-
-	char *pt;
-
-	pt = line;
-	while( isspace(*pt) ){
-		pt--;
-	}
-	return(pt);
-
-}
-
-
 enum {
 	CONF_SEARCH_KEY,
 	CONF_KEY,
@@ -312,8 +287,20 @@ enum {
 	CONF_NONE
 };
 
+static char *skipspace(char *line){
+
+	char *pt;
+
+	pt = line;
+	while( isspace(*pt) ){
+		pt++;
+	}
+	return(pt);
+}
+
 static int load_config(char *config){
 
+	int  ret = FALSE;
 	FILE *fp;
 	char line[CONFIG_LINE_LENGTH];
 	int  line_num = 0;
@@ -321,7 +308,8 @@ static int load_config(char *config){
 	debug("Load Config: (debug)Open %s",config);
 	if( ( fp = fopen(config, "r") ) == NULL ){
 		err("Load Config: Cannot open the configuration file. file=%s err=%s", config, strerror(errno));
-		goto Failure;
+		ret = FALSE;
+		goto ReturnFunc;
 	}
 
 	debug("Load Config: (debug)Loading the configuration file.");
@@ -415,8 +403,9 @@ static int load_config(char *config){
 				break;
 
 			  default:
-				err("BUG()");
-				goto Failure;
+				err("load_config():BUG: illegal status.(status=%d)",stat);
+				ret = FALSE;
+				goto ReturnFunc;
 			}
 			if( state == CONF_COMPLETE ){
 				break;
@@ -458,20 +447,16 @@ static int load_config(char *config){
 	}
 	debug("Load Config: (debug)--------------------------------------------------------");
 
+	/* success */
+	ret = TRUE;
 
+ReturnFunc:
+	if( fp != NULL ){	
+		(void) fclose(fp);
+	}
+	return(ret);
 
-
-	return(TRUE);
-
-Failure:
-	return(FALSE);
 }
-
-
-
-
-
-
 
 
 
