@@ -104,10 +104,11 @@ void uplogd_handler(int signum, siginfo_t *info, void *ctx)
 }
 
 
-
-/*
- * create_UNIX_socket:
- * 
+/*-------------------------------------------
+ * create and close UNIX domain _socket:
+ *  - create_UNIX_socket(char *socketfile)
+ *  - close_UNIX_socket(char *socketfile, int *sockfd
+ *-------------------------------------------
  */
 static int create_UNIX_socket(char *socketfile)
 {
@@ -168,7 +169,13 @@ static void close_UNIX_socket(char *socketfile, int *sockfd)
 }
 
 
-
+/*-------------------------------------------
+ * uplogd Main Loop routine
+ *   - void logmessage(char *msg)
+ *   - printline(char *msg)
+ *   - do_logging(void) << Main Loop
+ * ------------------------------------------
+ */
 static void logmessage(char *msg)
 {
 	int log_fd;
@@ -369,7 +376,8 @@ fail:
 
 /*-------------------------------------------
  * Load the configuration file
- * 
+ *  - skipspace(char *line)
+ *  - load_config(char *config) << Main
  * ------------------------------------------
  */
 enum {
@@ -384,6 +392,7 @@ enum {
 	CONF_NONE
 };
 
+
 static char *skipspace(char *line){
 
 	char *pt;
@@ -394,6 +403,7 @@ static char *skipspace(char *line){
 	}
 	return(pt);
 }
+
 
 static int load_config(char *config){
 
@@ -561,7 +571,11 @@ ReturnFunc:
 
 
 
-
+/*-------------------------------------------
+ * fork daemon
+ * 
+ * ------------------------------------------
+ */
 static pid_t do_daemon(int close_interface)
 {
 
@@ -643,11 +657,6 @@ static pid_t do_daemon(int close_interface)
 	return(0);
 
 }
-
-
-
-
-
 
 
 void exit_uplogd(int ret)
