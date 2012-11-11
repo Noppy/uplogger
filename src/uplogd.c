@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <ctype.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -43,18 +44,34 @@ struct struct_global_param{
 	char pidfile[CONFIG_DATA_LENGTH];
 	char sockfile[CONFIG_DATA_LENGTH];
 
+	int  socketfd;
+
 }param;
 
 
+struct struct_global_status{
 
-static void version()
+	int socketfd; /* UNIX domain socket file descripter */
+
+	int reload;   /* reload flag( reload=TRUE / FALSE) */ 
+	int exit;     /* exit flag */
+
+}status;
+
+
+void exit_uplogd(int ret);
+static void debug_print(void);
+
+
+
+static void version(void)
 {
 	printf( "%s version %s\n", SERVER_PROGRAMNAME, VERSION );
 	printf( "%s\n", AUTHOR );
 }
 
 
-static void usage()
+static void usage(void)
 {
 	printf( "%s [-d] [-F] [-h] [-v] [-f CONFIGFILE]\n", SERVER_PROGRAMNAME );
 	printf( "    -d: Debug mode(Print debug messages to stdout).\n" );
@@ -63,6 +80,24 @@ static void usage()
 	printf( "    -v: Output version.\n" );
 	printf( "    -f CONFIGFILE: Specify an configuration file.\n" );
 }
+
+
+
+void uplogd_handler(int signum)
+{
+
+	switch(signum){
+
+	  case SIGHUP:
+		status.reload = TRUE;
+		break;
+
+	  case SIGTERM:
+		status.exit   = TRUE;
+	}
+	
+}
+
 
 
 /*
@@ -110,6 +145,19 @@ static int create_UNIX_socket(char *socketfile)
 fail:
 	return(-1);
 }
+
+
+static void close_UNIX_socket(char *socketfile, int *sockfd)
+{
+
+	(void) close(*sockfd);
+
+	(void) unlink( socketfile );
+
+	*sockfd = -1;
+
+}
+
 
 
 static void logmessage(char *msg)
@@ -196,10 +244,8 @@ static void printline(char *msg)
 
 }
 
-static int do_logging()
+static int do_logging(void)
 {
-
-	int    socketfd;
 
 	fd_set fds, readfds;
 	int    nfds;
@@ -208,21 +254,27 @@ static int do_logging()
 	int    ret;
 
 	/* Create the UNIX socket */
-	socketfd = create_UNIX_socket( param.sockfile );
-	if( socketfd < 0 ){ goto fail; }
+	status.socketfd = create_UNIX_socket( param.sockfile );
+	if( status.socketfd < 0 ){ goto fail; }
 
 
 
 	FD_ZERO(&readfds);
-	FD_SET(socketfd, &readfds);
+	FD_SET(status.socketfd, &readfds);
 
 	for(;;){
 
 		memset(buf, 0, sizeof(buf));
 		memcpy(&fds, &readfds, sizeof(fd_set));
 
-		nfds = select( socketfd+1, (fd_set *)&readfds, (fd_set *)NULL,
+		/* wait  */
+		nfds = select( status.socketfd+1, (fd_set *)&readfds, (fd_set *)NULL,
 		           (fd_set *)NULL, (struct timeval *)NULL);
+
+		if( status.exit ){
+			debug("exit loop");
+			break;
+		}
 
 		if( nfds == 0 ){
 			debug("no select activity.\n");
@@ -232,9 +284,6 @@ static int do_logging()
 		if( nfds < 0 ){
 			if( errno == EINTR ){
 				info("interrupted\n");
-
-/* under const */
-
 				continue;
 			}else{
 				err("select error: %s\n", strerror(errno));
@@ -243,9 +292,9 @@ static int do_logging()
 		}
 
 		/* Recived message from Domain socket */
-		if( FD_ISSET(socketfd, &readfds) ){
+		if( FD_ISSET(status.socketfd, &readfds) ){
 	
-			ret = recv(socketfd, buf, BUFFER_LENGTH, 0 );
+			ret = recv(status.socketfd, buf, BUFFER_LENGTH, 0 );
 			if( ret < 0 ){
 				if( errno == EINTR ){ continue; };
 
@@ -427,9 +476,6 @@ static int load_config(char *config){
 		if( strncmp( key.pt, "logfile", key.length) == 0 ){
 			strncpy( param.logfile, value.pt, CONFIG_DATA_LENGTH );
 		
-		}else if( strncmp( key.pt, "pidfile", key.length) == 0 ){
-			strncpy( param.pidfile, value.pt, CONFIG_DATA_LENGTH );
-
 		}else if( strncmp( key.pt, "sockfile", key.length) == 0){
 			strncpy( param.sockfile, value.pt, CONFIG_DATA_LENGTH );
 
@@ -543,6 +589,40 @@ static pid_t do_daemon(int close_interface)
 
 
 
+
+
+
+
+void exit_uplogd(int ret)
+{
+
+	debug("close the socket and delete the socket file.");
+	close_UNIX_socket( param.sockfile, &(status.socketfd));
+
+	debug("delete the pid file.");
+
+	exit(ret);
+}
+
+
+void debug_print(void)
+{
+
+	if( util_param.debug){
+		debug("-----------------------------------------------");
+		debug("<Parameter list>");
+		debug(" Debug mode  :%d", util_param.debug);
+		debug(" Deamon mode :%d", param.daemon);
+		debug(" Config file :%s", param.configfile);
+		debug(" Logfile     :%s", param.logfile);
+		debug(" Pidfile     :%s", param.pidfile);
+		debug(" Socketfile  :%s", param.sockfile);
+		debug("-----------------------------------------------");
+	}
+
+}
+
+
 int main(int argc, char **argv)
 {
 	int   ch;
@@ -561,13 +641,14 @@ int main(int argc, char **argv)
 	strncpy( param.logfile,    LOGFILE,     CONFIG_DATA_LENGTH-1);
 	strncpy( param.pidfile,    PIDFILE,     CONFIG_DATA_LENGTH-1);
 	strncpy( param.sockfile,   SOCKET_FILE, CONFIG_DATA_LENGTH-1);
+	status.socketfd = -1;
 
 	/* Set enviroments */
 	(void)setlocale(LC_ALL, "C");
 
 
 	/* Parse the command line. */
-	while( ( ch = getopt(argc, argv, "dFf:hv") ) != EOF ){
+	while( ( ch = getopt(argc, argv, "dFf:hp:v") ) != EOF ){
 		switch( (char)ch ){
 
 		  case 'd': /* Debug mode      */
@@ -586,19 +667,24 @@ int main(int argc, char **argv)
 		  case 'h': /* Help */
 		    usage();
 			ret = EXIT_SUCCESS;
-			goto exit;
+			goto main_exit;
 			break;  /* dummy */
+
+		  case 'p': /* pid file */
+			memset( param.pidfile, 0, CONFIG_DATA_LENGTH );
+			strncpy(param.pidfile, optarg,CONFIG_DATA_LENGTH-1);
+			break;
 
 		  case 'v': /* Output version */
 			version();
 			ret = EXIT_SUCCESS;
-			goto exit;
+			goto main_exit;
 			break;  /* dummy */
 
 		  default:
 			usage();
 			ret = EXIT_FAILURE;
-			goto exit;
+			goto main_exit;
 		}
 	}
 
@@ -606,21 +692,9 @@ int main(int argc, char **argv)
 	if( ! load_config( param.configfile ) ){
 		err("Cannot load the configuration file.");
 		ret = EXIT_FAILURE;
-		goto exit;
+		goto main_exit;
 	}
-
-	/* debug */
-	if( util_param.debug){
-		debug("-----------------------------------------------");
-		debug("<Parameter list>");
-		debug(" Debug mode  :%d", util_param.debug);
-		debug(" Deamon mode :%d", param.daemon);
-		debug(" Config file :%s", param.configfile);
-		debug(" Logfile     :%s", param.logfile);
-		debug(" Pidfile     :%s", param.pidfile);
-		debug(" Socketfile  :%s", param.sockfile);
-		debug("-----------------------------------------------");
-	}
+	debug_print();
 
 
 	/* Initalize process for daemon */
@@ -630,7 +704,7 @@ int main(int argc, char **argv)
 		if( check_pid(param.pidfile) > 0 ){
 			err("the pid file and pid alread exist");
 			ret = EXIT_FAILURE;
-			goto exit;
+			goto main_exit;
 		}
 
 		/* fork */
@@ -638,11 +712,11 @@ int main(int argc, char **argv)
 		pid = do_daemon( !util_param.debug );
 		if( pid < 0){
 			ret = EXIT_FAILURE;
-			goto exit;
+			goto main_exit;
 		}else if( pid != 0 ){
 			/* parent process */
 			ret = EXIT_SUCCESS;
-			goto exit;
+			goto main_exit;
 		}
 
 		/* write the pid file */
@@ -650,7 +724,7 @@ int main(int argc, char **argv)
 		if( write_pid(param.pidfile) < 0  ){
 			err("Cannot write the pid file.");
 			ret = EXIT_FAILURE;
-			goto exit;
+			goto main_exit;
 		}
 	}
 
@@ -658,8 +732,8 @@ int main(int argc, char **argv)
 	/* main routine */
 	ret = do_logging();
 
-exit:
-	
-	exit(ret);
+main_exit:
+	debug("uplogd finalization & exit");
+	exit_uplogd(ret);
 
 }

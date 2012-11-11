@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 	int  ch;
 
 	/* Initialize */
-	memset( sock, 0,      BUFFER_LENGTH   );
+	memset( sock, '\0',      BUFFER_LENGTH   );
 
 	/* Perse arguments */
 	while( ( ch = getopt(argc, argv, "hs:v") ) != EOF ){
@@ -60,7 +60,6 @@ int main(int argc, char **argv)
 			break;
 
 		  case 's':
-			memset( sock, 0,      BUFFER_LENGTH   );
 			strncpy(sock, optarg, BUFFER_LENGTH-1 );
 			break;
 
@@ -91,9 +90,12 @@ int main(int argc, char **argv)
 			(void)strncat(msg, space, BUFFER_LENGTH);
 		}	
 	}
-	printf("sock:%s   mes:%s\n",sock, msg);
 
-	ret = uplogger(sock, 1, 1, "%s", msg);
+	if( *sock == '\0' ){
+		ret = uplogger(NULL, 1, 1, "%s", msg);
+	}else{
+		ret = uplogger(sock, 1, 1, "%s", msg);
+	}
 
 	if( ret ){
 		exit(EXIT_SUCCESS);
