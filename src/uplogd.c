@@ -13,6 +13,7 @@
 #include <locale.h>
 #include <ctype.h>
 #include <signal.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -40,8 +41,8 @@ struct struct_global_param{
 	int  daemon;
 	
 	char configfile[CONFIG_DATA_LENGTH];
-	char logfile[CONFIG_DATA_LENGTH];
-	char pidfile[CONFIG_DATA_LENGTH];
+	char logfile[PATH_MAX];
+	char pidfile[PATH_MAX];
 	char sockfile[CONFIG_DATA_LENGTH];
 
 	int  socketfd;
@@ -59,6 +60,7 @@ struct struct_global_status{
 }status;
 
 
+static int load_config(char *config);
 void exit_uplogd(int ret);
 static void debug_print(void);
 
@@ -83,17 +85,20 @@ static void usage(void)
 
 
 
-void uplogd_handler(int signum)
+void uplogd_handler(int signum, siginfo_t *info, void *ctx)
 {
 
 	switch(signum){
+
+	  case SIGINT:
+	  case SIGTERM:
+		status.exit   = TRUE;
+		break;
 
 	  case SIGHUP:
 		status.reload = TRUE;
 		break;
 
-	  case SIGTERM:
-		status.exit   = TRUE;
 	}
 	
 }
@@ -117,6 +122,7 @@ static int create_UNIX_socket(char *socketfile)
 	(void) unlink( socketfile );
 
 	/* create the UNIX domain socket. */
+	debug("Create Socket: (debug)Create socket.");
 	sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if( sockfd < 0){
 		err("Cannot create a UNIX domain socket: %s", strerror(errno));
@@ -124,6 +130,7 @@ static int create_UNIX_socket(char *socketfile)
 	}
 
 	/* bind the socket */
+	debug("Create Socket: (debug)bind socket");
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, socketfile);
 
@@ -134,6 +141,7 @@ static int create_UNIX_socket(char *socketfile)
 	}
 
 	/* change the socket file mode(mode = rw-rw-rw-) */
+	debug("Create Socket: (debug)Change file mode to the socket file.");
 	ret = chmod( socketfile, 0666 );
 	if( ret < 0 ){
 		err("Cannot chmod(file=%s): %s", socketfile, strerror(errno));
@@ -149,9 +157,10 @@ fail:
 
 static void close_UNIX_socket(char *socketfile, int *sockfd)
 {
-
+	debug("Close Socket: (debug)Close UNIX domain socket.");
 	(void) close(*sockfd);
 
+	debug("Close Socket: (debug)Remove the socket file(%s)", socketfile);
 	(void) unlink( socketfile );
 
 	*sockfd = -1;
@@ -249,9 +258,30 @@ static int do_logging(void)
 
 	fd_set fds, readfds;
 	int    nfds;
-
 	char   buf[BUFFER_LENGTH];
 	int    ret;
+	struct sigaction sa_sigint;
+	char   old_sockfile[CONFIG_DATA_LENGTH];
+
+	/* Set status */
+	status.exit   = FALSE;
+	status.reload = FALSE;
+
+	/* Set signal */
+	memset( &sa_sigint, 0, sizeof(sa_sigint) );
+	sa_sigint.sa_sigaction = uplogd_handler;
+	sa_sigint.sa_flags     = SA_SIGINFO;
+
+	if(sigaction(SIGINT, &sa_sigint, NULL) < 0){
+		err("Cannot set signal: %s", strerror(errno));
+	}
+	if(sigaction(SIGTERM, &sa_sigint, NULL) < 0){
+		err("Cannot set signal: %s", strerror(errno));
+	}
+	if(sigaction(SIGHUP, &sa_sigint, NULL) < 0){
+		err("Cannot set signal: %s", strerror(errno));
+	}
+
 
 	/* Create the UNIX socket */
 	status.socketfd = create_UNIX_socket( param.sockfile );
@@ -272,8 +302,28 @@ static int do_logging(void)
 		           (fd_set *)NULL, (struct timeval *)NULL);
 
 		if( status.exit ){
-			debug("exit loop");
+			debug("Received SIGTERM or SIGINT.");
 			break;
+
+		}else if( status.reload ){
+			debug("Received SIGHUP. Reload the configration file.");
+			status.reload = FALSE;
+
+			/* Reload config */
+			strcpy( old_sockfile, param.sockfile );
+			if( load_config( param.configfile ) ){
+				
+				/* Reset UNIX domain socket */
+				close_UNIX_socket( old_sockfile, &(status.socketfd));
+				status.socketfd = create_UNIX_socket( param.sockfile );
+				if( status.socketfd < 0 ){ goto fail; }
+
+			}else{
+				err("Cannot load the configuration file.");
+			}
+
+
+			continue;
 		}
 
 		if( nfds == 0 ){
@@ -351,6 +401,10 @@ static int load_config(char *config){
 	FILE *fp;
 	char line[CONFIG_LINE_LENGTH];
 	int  line_num = 0;
+
+	struct struct_global_param tmp_param;
+
+	memset( &tmp_param, 0, sizeof(tmp_param) );
 
 	debug("Load Config: (debug)Open %s",config);
 	if( ( fp = fopen(config, "r") ) == NULL ){
@@ -474,16 +528,16 @@ static int load_config(char *config){
 
 		/* Search and set parameters */
 		if( strncmp( key.pt, "logfile", key.length) == 0 ){
-			strncpy( param.logfile, value.pt, CONFIG_DATA_LENGTH );
+			strncpy( tmp_param.logfile, value.pt, CONFIG_DATA_LENGTH );
 		
 		}else if( strncmp( key.pt, "sockfile", key.length) == 0){
-			strncpy( param.sockfile, value.pt, CONFIG_DATA_LENGTH );
+			strncpy( tmp_param.sockfile, value.pt, CONFIG_DATA_LENGTH );
 
 		}else{
 			err("Load Config: Unknown key(key=%s): line=%-3d file=%s", key.pt, line_num, config);
 		}
 
-	continue;
+		continue;
 
 	SyntaxError:
 		err(  "Load Config: Syntax error: line=%-3d file=%s", line_num, config);
@@ -491,7 +545,10 @@ static int load_config(char *config){
 	}
 	debug("Load Config: (debug)--------------------------------------------------------");
 
+
 	/* success */
+	strcpy( param.logfile,  tmp_param.logfile);
+	strcpy( param.sockfile, tmp_param.sockfile);
 	ret = TRUE;
 
 ReturnFunc:
@@ -661,7 +718,12 @@ int main(int argc, char **argv)
 
 		  case 'f': /* configuration file */
 			memset( param.configfile, 0, CONFIG_DATA_LENGTH );
-			strncpy(param.configfile, optarg,CONFIG_DATA_LENGTH-1);
+			if( realpath( optarg, param.configfile ) == NULL ){
+				err("Invalid path: -f %s\n", optarg);
+				usage();
+				ret = EXIT_SUCCESS;
+				goto main_exit;
+			}
 			break;
 
 		  case 'h': /* Help */
@@ -672,7 +734,12 @@ int main(int argc, char **argv)
 
 		  case 'p': /* pid file */
 			memset( param.pidfile, 0, CONFIG_DATA_LENGTH );
-			strncpy(param.pidfile, optarg,CONFIG_DATA_LENGTH-1);
+			if( realpath( optarg, param.pidfile ) == NULL ){
+				err("Invalid path: -p %s\n", optarg);
+				usage();
+				ret = EXIT_SUCCESS;
+				goto main_exit;
+			}
 			break;
 
 		  case 'v': /* Output version */
