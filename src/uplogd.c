@@ -294,11 +294,11 @@ static int do_logging(void)
 	status.socketfd = create_UNIX_socket( param.sockfile );
 	if( status.socketfd < 0 ){ goto fail; }
 
-
-
+	/* set discripter for select() */
 	FD_ZERO(&readfds);
 	FD_SET(status.socketfd, &readfds);
 
+	/* Main Loop */
 	for(;;){
 
 		memset(buf, 0, sizeof(buf));
@@ -309,11 +309,11 @@ static int do_logging(void)
 		           (fd_set *)NULL, (struct timeval *)NULL);
 
 		if( status.exit ){
-			debug("Received SIGTERM or SIGINT.");
+			info("Received SIGTERM or SIGINT.");
 			break;
 
 		}else if( status.reload ){
-			debug("Received SIGHUP. Reload the configration file.");
+			info("Received SIGHUP. Reload the configration file and re-create the socket.");
 			status.reload = FALSE;
 
 			/* Reload config */
@@ -328,8 +328,6 @@ static int do_logging(void)
 			}else{
 				err("Cannot load the configuration file.");
 			}
-
-
 			continue;
 		}
 
@@ -365,10 +363,11 @@ static int do_logging(void)
 		}
 	}
 
-
+	info("exit uplogd");
 	return(EXIT_SUCCESS);
 
 fail:
+	info("exit uplogd");
 	return(EXIT_FAILURE);
 
 }
@@ -418,7 +417,7 @@ static int load_config(char *config){
 
 	debug("Load Config: (debug)Open %s",config);
 	if( ( fp = fopen(config, "r") ) == NULL ){
-		err("Load Config: Cannot open the configuration file. file=%s err=%s", config, strerror(errno));
+		err("Load Config: Cannot open the configuration file. file:\"%s\"  err:%s", config, strerror(errno));
 		ret = FALSE;
 		goto ReturnFunc;
 	}
@@ -658,7 +657,12 @@ static pid_t do_daemon(int close_interface)
 
 }
 
-
+/*-------------------------------------------
+ * finalization
+ *   - close the socket.
+ *   - delete the pid file.
+ * ------------------------------------------
+ */
 void exit_uplogd(int ret)
 {
 
@@ -666,12 +670,13 @@ void exit_uplogd(int ret)
 	close_UNIX_socket( param.sockfile, &(status.socketfd));
 
 	debug("delete the pid file.");
+	(void)unlink(param.pidfile);
 
 	exit(ret);
 }
 
 
-void debug_print(void)
+static void debug_print(void)
 {
 
 	if( util_param.debug){
@@ -687,6 +692,63 @@ void debug_print(void)
 	}
 
 }
+
+
+/*----------------------------------------------
+ *  relative2real( char *relative, char *real )
+ *
+ *  convert relative path to real path.
+ *     relative: relative path
+ *     real    : real path
+ * ret
+ *    success -> TRUE;
+ *    failer  -> FALSE; *Invalid path
+ *----------------------------------------------
+ */
+int relative2real( char *relative, char *real )
+{
+
+	int  ret;
+	char *p;
+	char *slash;
+	char dir[PATH_MAX];
+	char buf[PATH_MAX];
+
+	ret = FALSE;
+
+	/* search */
+	strncpy(buf, relative, PATH_MAX);
+	slash = NULL;
+	p = buf;
+	while( *p != '\0' ){
+		if( *p == '/' ){ slash = p; }
+		p++;
+	}
+	if( slash == NULL ){
+		if( getcwd(dir, sizeof(dir)) == NULL ) { goto fail; };
+		(void)strncat( dir, "/", PATH_MAX -1 );
+		(void)strncat( dir, relative, PATH_MAX - strlen( dir ) );
+		if( realpath( dir, real) == NULL ){ goto fail; };
+
+	}else if( *buf == '/' ){
+		(void)strncat( real, buf, PATH_MAX);
+
+	}else{
+		*slash = '\0';
+		if( realpath( buf, real) == NULL ){ goto fail; };
+		if( *(slash+1) != '\0' ){
+			(void)strncat( real, "/", PATH_MAX - 1);
+			(void)strncat( real, slash+1, PATH_MAX - strlen( real ) );
+		}
+	}
+	ret = TRUE;
+
+fail:
+	return(ret);
+
+}
+
+
 
 
 int main(int argc, char **argv)
@@ -727,7 +789,7 @@ int main(int argc, char **argv)
 
 		  case 'f': /* configuration file */
 			memset( param.configfile, 0, CONFIG_DATA_LENGTH );
-			if( realpath( optarg, param.configfile ) == NULL ){
+			if( ! relative2real( optarg, param.configfile ) ){
 				err("Invalid path: -f %s\n", optarg);
 				usage();
 				ret = EXIT_SUCCESS;
@@ -743,12 +805,13 @@ int main(int argc, char **argv)
 
 		  case 'p': /* pid file */
 			memset( param.pidfile, 0, CONFIG_DATA_LENGTH );
-			if( realpath( optarg, param.pidfile ) == NULL ){
+			if( ! relative2real( optarg, param.pidfile ) ){
 				err("Invalid path: -p %s\n", optarg);
 				usage();
 				ret = EXIT_SUCCESS;
 				goto main_exit;
 			}
+
 			break;
 
 		  case 'v': /* Output version */
@@ -772,6 +835,9 @@ int main(int argc, char **argv)
 	}
 	debug_print();
 
+
+	/* startup message */
+	info("start %s version %s\n", SERVER_PROGRAMNAME, VERSION );
 
 	/* Initalize process for daemon */
 	if( param.daemon ){
