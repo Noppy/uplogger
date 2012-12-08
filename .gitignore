@@ -2,3 +2,15 @@
 *~
 uplogd
 uplogger
+libuplogger.a
+
+aclocal.m4
+autom4te.cache/
+depcomp
+Makefile
+config.h
+config.log
+config.status
+src/.deps/
+src/Makefile
+stamp-h1
