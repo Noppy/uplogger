@@ -1,0 +1,8 @@
+- uplogger - 
+
+Uplogger is message logging system for User Programs(UP).
+Uplogger contains the Server Daemon(uplogd) and Client Command(uplogger).
+
+In addition, it also provides the library for client to use in C language.
+(libuplogger.a)
+

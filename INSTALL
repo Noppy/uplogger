@@ -1,4 +1,4 @@
-sic Installation
+Basic Installation
 ==================
 
 In the uplogger directory run:
@@ -17,4 +17,25 @@ In the default package are used configure options:
   --with-logdir=DIR       message log directory [DIR=LOCALSTATEDIR/log]
   --with-piddir=DIR       PID file directory [DIR=LOCALSTATEDIR/run]
   --with-sockdir=DIR      socket file directory [DIR=LOCALSTATEDIR/run]
+
+
+INSTALL
+=======
+
+PREFIX(default:/usr/local/uplog)
+    +/bin/
+        +uplogger   --> Client command
+    +/sbin/
+        +uplogd     --> Server Deamon
+    +/etc
+        +uplogd.conf
+    +/var
+        +/log       --> Log directory
+        +/run       --> PID & SOCKET directory
+
+    +/include
+        +uplogger.h --> header for libuplogger.a 
+    +/lib
+        +libuplogger.a
+
 
