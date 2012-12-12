@@ -1,0 +1,20 @@
+sic Installation
+==================
+
+In the uplogger directory run:
+autoreconf
+These commands create from configure.ac executable ./configure
+
+Then you can start installation:
+make
+make install
+
+The executable files will be installed in /usr/local/uplog/
+
+Options
+=======
+In the default package are used configure options:
+  --with-logdir=DIR       message log directory [DIR=LOCALSTATEDIR/log]
+  --with-piddir=DIR       PID file directory [DIR=LOCALSTATEDIR/run]
+  --with-sockdir=DIR      socket file directory [DIR=LOCALSTATEDIR/run]
+

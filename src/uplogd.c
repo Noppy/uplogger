@@ -1,7 +1,19 @@
 /* Uplogger
- * Copyright(C) 2012 N.Fujita All rights reserved.
- *
  * - Server daemon
+ *
+ * Copyright 2012 N.Fujita <noppys2012@gmail.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #include <stdio.h>
@@ -186,7 +198,7 @@ static void logmessage(char *msg)
 	for( count=0; count < 3; count++){ 
 		/* open the log file */
 		log_fd = open(param.logfile, O_WRONLY|O_CREAT|O_APPEND|O_NOCTTY,
-		                             S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+		                             S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH);
 		if( log_fd < 0 ){
 			err("Cannot open the log file(%s): %s", param.logfile, strerror(errno));
 			continue;
@@ -556,8 +568,8 @@ static int load_config(char *config){
 
 
 	/* success */
-	strcpy( param.logfile,  tmp_param.logfile);
-	strcpy( param.sockfile, tmp_param.sockfile);
+	if( strlen(tmp_param.logfile) > 0) strcpy( param.logfile,  tmp_param.logfile);
+	if( strlen(tmp_param.sockfile)> 0) strcpy( param.sockfile, tmp_param.sockfile);
 	ret = TRUE;
 
 ReturnFunc:
@@ -771,9 +783,9 @@ int main(int argc, char **argv)
 	strncpy( param.sockfile,   SOCKET_FILE, CONFIG_DATA_LENGTH-1);
 	status.socketfd = -1;
 
+
 	/* Set enviroments */
 	(void)setlocale(LC_ALL, "C");
-
 
 	/* Parse the command line. */
 	while( ( ch = getopt(argc, argv, "dFf:hp:v") ) != EOF ){

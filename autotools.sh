@@ -1,5 +1,5 @@
 #!/bin/sh
-touch INSTALL NEWS README COPYING AUTHORS ChangeLog
+touch INSTALL NEWS README LICENSE AUTHORS ChangeLog
 echo aclocal
 aclocal
 echo autoheader
