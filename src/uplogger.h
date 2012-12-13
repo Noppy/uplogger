@@ -20,11 +20,13 @@
  * 
  * - uplogger(char *sockfile,int add_header,int syslog,char *format, ...)
  *   Arguments
- *     - sockfile  : the path nape for a socket file.
- *                   NULL = default path(define SOCKET_FILE)
+ *     - sockfile  : The path nape for a socket file.
+ *                   NULL = Default path(define SOCKET_FILE)
  *     - add_header: blooen, 1: Add header, 0:Do not add header
- *     - syslog    : blooen, 1: print error message to syslog
- *                           0: print error message to stderr
+ *     - syslog    : blooen, 1: Print error message to syslog
+ *                           0: Print error message to stderr
+ *	   - msec      : blooen, 1: Add a millisecond
+ *	                         0: Don't add a millisecond
  *     - *format   : message
  *   Return value
  *     0 >= :On success
@@ -34,5 +36,5 @@
  *---------------------------------------------------------
  */
 
-extern int uplogger( char *sockfile, int add_header, int syslog, char *format, ... );
+extern int uplogger( char *sockfile, int add_header, int msec, int syslog, char *format, ... );
 

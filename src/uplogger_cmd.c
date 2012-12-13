@@ -104,9 +104,9 @@ int main(int argc, char **argv)
 	}
 
 	if( *sock == '\0' ){
-		ret = uplogger(NULL, 1, 1, "%s", msg);
+		ret = uplogger(NULL, 1, 0, 1, "%s", msg);
 	}else{
-		ret = uplogger(sock, 1, 1, "%s", msg);
+		ret = uplogger(sock, 1, 0, 1, "%s", msg);
 	}
 
 	if( ret ){

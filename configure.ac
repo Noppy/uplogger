@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([uplogger], [1.0], [noppys2012@gmail.com])
+AC_INIT([uplogger], [0.5], [noppys2012@gmail.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/uplog_util.c])
 AC_CONFIG_HEADERS([src/config.h])

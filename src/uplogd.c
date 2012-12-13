@@ -841,13 +841,13 @@ int main(int argc, char **argv)
 
 	/* Load the configuration file */
 	if( ! load_config( param.configfile ) ){
-		err("Cannot load the configuration file.");
+		//err("Cannot load the configuration file.");
 		ret = EXIT_FAILURE;
 		goto main_exit;
 	}
 	debug_print();
 
-
+	
 	/* startup message */
 	info("start %s version %s\n", SERVER_PROGRAMNAME, VERSION );
 
@@ -870,7 +870,7 @@ int main(int argc, char **argv)
 		}else if( pid != 0 ){
 			/* parent process */
 			ret = EXIT_SUCCESS;
-			goto main_exit;
+			exit(ret);
 		}
 
 		/* write the pid file */

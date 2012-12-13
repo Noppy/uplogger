@@ -14,5 +14,5 @@ uplogd.conf: FLAG
 	@echo "#logfile = '"$(UPLOGGER_LOGDIR)"/uplog.log'"            >> $@
 	@echo ""                                                       >> $@
 	@echo "# Socket filename"                                      >> $@
-	@echo "#sockfile ='"$(UPLOGGER_SOCKDIR)"/uplogd.pid'"          >> $@
+	@echo "#sockfile ='"$(UPLOGGER_SOCKDIR)"/uplogd.sock'"         >> $@
 

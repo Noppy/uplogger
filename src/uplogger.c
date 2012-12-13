@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 #include "uplog_common.h"
 #include "uplog_util.h"
 #include "uplogger.h"
@@ -41,26 +42,49 @@
  *
  * args: *head    : pointer of message string
  *       size     : the length of head array
+ *       msec     : Add a millisecond
  * ret : 
  *       none
  * ********************************************************************
  */
-static void getheader( char *head, int size )
+static void getheader( char *head, int size, int msec )
 {
 
-	time_t timer;
+	struct timeval tv;
 	struct tm *t_st;
 	char   host[128];
+	char   *p;
 
 	/* get time */
-	(void)time( &timer );
-	t_st = localtime( &timer );
+	(void)gettimeofday( &tv, NULL);
+	t_st = localtime( &tv.tv_sec );
 
 	/* get hostname */
 	(void)gethostname( host, sizeof(host) );
 
+	p = host;
+	while( *p != '\0' ){
+		if( *p == '.' ){
+			*p = '\0';
+			break;
+		}
+		p++;
+	}
+
+
 	/* construct header strings */
-	snprintf( head, size, "%04d/%02d/%02d %02d:%02d:%02d %s ", 
+	if( msec ){
+		snprintf( head, size, "%04d/%02d/%02d %02d:%02d:%02d.%03d %s ", 
+	                t_st->tm_year + 1900,
+					t_st->tm_mon  + 1,
+	                t_st->tm_mday,
+					t_st->tm_hour,
+					t_st->tm_min,
+					t_st->tm_sec,
+					tv.tv_usec / 1000,
+					host );
+	}else{
+		snprintf( head, size, "%04d/%02d/%02d %02d:%02d:%02d %s ", 
 	                t_st->tm_year + 1900,
 					t_st->tm_mon  + 1,
 	                t_st->tm_mday,
@@ -68,7 +92,7 @@ static void getheader( char *head, int size )
 					t_st->tm_min,
 					t_st->tm_sec,
 					host );
-
+	}
 }
 
 /**********************************************************************
@@ -76,6 +100,7 @@ static void getheader( char *head, int size )
  *
  * args: sockfile = NULL: default path(SOCKET_FILE) other: used specifed path
  *       add_header = 1: Log header message, 0:don't header message
+ *       msec       = 1: Add a millisecond,  0:don't add a millisecond
  *       syslog     = 1: Log err to syslog,  0:Log err to stderr
  *       char *format ... = logging message
  * ret : 
@@ -83,7 +108,7 @@ static void getheader( char *head, int size )
  *      -1  = failure 
  * ********************************************************************
  */
-int uplogger( char *sockfile, int add_header, int syslog, char *format, ... )
+int uplogger( char *sockfile, int add_header, int msec, int syslog, char *format, ... )
 {
 
 	va_list ap;
@@ -94,6 +119,8 @@ int uplogger( char *sockfile, int add_header, int syslog, char *format, ... )
 	int     sockfd;
 	struct  sockaddr_un addr;
 	int     ret;
+
+	struct stat statbuf;
 
 	/* initialize */
 	ret = -1;
@@ -111,7 +138,7 @@ int uplogger( char *sockfile, int add_header, int syslog, char *format, ... )
 
 	/* add header string(yyyy/mm/dd hh:mm:ss host), if add_header is true */
 	if( add_header ){
-		getheader(msg, HEADER_LENGTH );
+		getheader(msg, HEADER_LENGTH, msec );
 		size = strnlen( msg, MESSAGE_LENGTH);
 		if( size < MESSAGE_LENGTH ){
 			pt += size;
@@ -157,6 +184,18 @@ int uplogger( char *sockfile, int add_header, int syslog, char *format, ... )
 	}else{
 		strcpy(addr.sun_path, sockfile);
 	}
+
+	/* check socket file */
+	if( stat(addr.sun_path, &statbuf) != 0 || ! S_ISSOCK(statbuf.st_mode) ){
+		if( syslog ){
+			err(   "uplogger(): %s is not the socket file", addr.sun_path );
+		}else{
+			fprintf( stderr, "uplogger(): %s is not the socket file", addr.sun_path);
+		}
+		goto func_ret;
+	}		
+
+
 	/* send to message */
 	ret = sendto(sockfd, msg, size, 0, 
 	             (struct sockaddr *)&addr, sizeof(addr) );
