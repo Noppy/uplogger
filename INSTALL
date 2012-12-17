@@ -6,23 +6,34 @@ autoreconf
 These commands create from configure.ac executable ./configure
 
 Then you can start installation:
-make
-make install
+$ make
+$ su
+# make install
 
 The executable files will be installed in /usr/local/uplog/
+(defalut)
+
+
+<If RHEL environment>
+Install init.d script:
+# make install-init-redhat
+
 
 Options
 =======
+Installation directories:
+  --prefix= PREFIX       install architecture-independent files in PREFIX
+
 In the default package are used configure options:
   --with-logdir=DIR       message log directory [DIR=LOCALSTATEDIR/log]
   --with-piddir=DIR       PID file directory [DIR=LOCALSTATEDIR/run]
   --with-sockdir=DIR      socket file directory [DIR=LOCALSTATEDIR/run]
 
 
-INSTALL
+Layout
 =======
 
-PREFIX(default:/usr/local/uplog)
+PREFIX directory
     +/bin/
         +uplogger   --> Client command
     +/sbin/
