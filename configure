@@ -5282,7 +5282,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile src/Makefile conf/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile conf/Makefile init-redhat/Makefile"
 
 
 
@@ -6012,6 +6012,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "conf/Makefile") CONFIG_FILES="$CONFIG_FILES conf/Makefile" ;;
+    "init-redhat/Makefile") CONFIG_FILES="$CONFIG_FILES init-redhat/Makefile" ;;
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 $as_echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
@@ -6845,4 +6846,5 @@ fi
 
 # For a trigger to run the creation of ./conf/uplogd.conf.
 touch ./conf/FLAG
+touch ./init-redhat/FLAG
 

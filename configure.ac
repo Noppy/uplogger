@@ -57,7 +57,8 @@ AC_SUBST(UPLOGGER_SOCKDIR)
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-				 conf/Makefile])
+				 conf/Makefile
+				 init-redhat/Makefile])
 
 
 # Create library
@@ -67,4 +68,5 @@ AC_OUTPUT
 
 # For a trigger to run the creation of ./conf/uplogd.conf.
 touch ./conf/FLAG
+touch ./init-redhat/FLAG
 

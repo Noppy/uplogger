@@ -187,7 +187,11 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = src conf
+SUBDIRS = \
+	src         \
+	conf        \
+	init-redhat
+
 all: all-recursive
 
 .SUFFIXES:
@@ -657,6 +661,9 @@ uninstall-am:
 install-data-local:
 	test -z "$(UPLOGGER_LOGDIR)" || $(MKDIR_P) "$(DESTDIR)$(UPLOGGER_LOGDIR)"
 	test -z "$(UPLOGGER_PIDDIR)" || $(MKDIR_P) "$(DESTDIR)$(UPLOGGER_PIDDIR)"
+
+install-init-redhat:
+	@$(MAKE) $(AM_MAKEFLAGS) -C ./init-redhat install-init-redhat
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

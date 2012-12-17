@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <limits.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -37,7 +38,6 @@
 
 
 #define  CONFIG_LINE_LENGTH  16384
-#define  CONFIG_DATA_LENGTH  256
 
 #define  BUFFER_LENGTH     MESSAGE_LENGTH + 4
 #define  LOGMES_MAX_RETRY  3
@@ -52,10 +52,10 @@ struct struct_global_param{
 	//char *program;
 	int  daemon;
 	
-	char configfile[CONFIG_DATA_LENGTH];
+	char configfile[PATH_MAX];
 	char logfile[PATH_MAX];
 	char pidfile[PATH_MAX];
-	char sockfile[CONFIG_DATA_LENGTH];
+	char sockfile[PATH_MAX];
 
 	int  socketfd;
 
@@ -280,7 +280,7 @@ static int do_logging(void)
 	char   buf[BUFFER_LENGTH];
 	int    ret;
 	struct sigaction sa_sigint;
-	char   old_sockfile[CONFIG_DATA_LENGTH];
+	char   old_sockfile[PATH_MAX];
 
 	/* Set status */
 	status.exit   = FALSE;
@@ -549,10 +549,10 @@ static int load_config(char *config){
 
 		/* Search and set parameters */
 		if( strncmp( key.pt, "logfile", key.length) == 0 ){
-			strncpy( tmp_param.logfile, value.pt, CONFIG_DATA_LENGTH );
+			strncpy( tmp_param.logfile, value.pt, PATH_MAX );
 		
 		}else if( strncmp( key.pt, "sockfile", key.length) == 0){
-			strncpy( tmp_param.sockfile, value.pt, CONFIG_DATA_LENGTH );
+			strncpy( tmp_param.sockfile, value.pt, PATH_MAX );
 
 		}else{
 			err("Load Config: Unknown key(key=%s): line=%-3d file=%s", key.pt, line_num, config);
@@ -761,6 +761,40 @@ fail:
 }
 
 
+static int checkdir( char *path )
+{
+
+	char *d; 
+	char buf[PATH_MAX];
+	int  ret;
+
+	ret = FALSE;
+
+	memset( (char *)&buf, 0, sizeof(buf));
+	strncpy(buf, path,PATH_MAX);
+	
+
+	/* cut directory path */
+	if( ( d = dirname( buf ) ) != NULL ){
+
+		/* access check */
+		if( access( d, W_OK ) == 0 ){
+			debug("check write permission: OK");
+			ret = TRUE;
+		}else{
+			debug("error check access: %s", strerror(errno));
+			debug("directory path:%s", d);
+		}
+
+	}else{
+		debug("Invalid pathname(%s): %s", path, strerror(errno));
+	}
+
+
+	return(ret);
+
+}
+
 
 
 int main(int argc, char **argv)
@@ -777,10 +811,10 @@ int main(int argc, char **argv)
 	/* Set default values to global_parameter */
 	memset( (char *)&param, 0, sizeof(param));
 	param.daemon     = TRUE;
-	strncpy( param.configfile, CONFFILE,    CONFIG_DATA_LENGTH-1);
-	strncpy( param.logfile,    LOGFILE,     CONFIG_DATA_LENGTH-1);
-	strncpy( param.pidfile,    PIDFILE,     CONFIG_DATA_LENGTH-1);
-	strncpy( param.sockfile,   SOCKET_FILE, CONFIG_DATA_LENGTH-1);
+	strncpy( param.configfile, CONFFILE,    PATH_MAX-1);
+	strncpy( param.logfile,    LOGFILE,     PATH_MAX-1);
+	strncpy( param.pidfile,    PIDFILE,     PATH_MAX-1);
+	strncpy( param.sockfile,   SOCKET_FILE, PATH_MAX-1);
 	status.socketfd = -1;
 
 
@@ -800,7 +834,7 @@ int main(int argc, char **argv)
 			break;
 
 		  case 'f': /* configuration file */
-			memset( param.configfile, 0, CONFIG_DATA_LENGTH );
+			memset( param.configfile, 0, PATH_MAX );
 			if( ! relative2real( optarg, param.configfile ) ){
 				err("Invalid path: -f %s\n", optarg);
 				usage();
@@ -816,7 +850,7 @@ int main(int argc, char **argv)
 			break;  /* dummy */
 
 		  case 'p': /* pid file */
-			memset( param.pidfile, 0, CONFIG_DATA_LENGTH );
+			memset( param.pidfile, 0, PATH_MAX );
 			if( ! relative2real( optarg, param.pidfile ) ){
 				err("Invalid path: -p %s\n", optarg);
 				usage();
@@ -846,6 +880,19 @@ int main(int argc, char **argv)
 		goto main_exit;
 	}
 	debug_print();
+
+	/* check log&run directory permission */
+	char *p[] = { param.logfile, param.pidfile, param.sockfile };
+	int i;
+
+	for( i=0; i < sizeof(p)/sizeof(p[0]); i++){
+		debug("check write permission(%s)", p[i]);
+		if( checkdir( p[i] ) != TRUE ){
+			err("not found, or write permission denied.(%s)", p[i] );
+			goto main_exit;
+		}
+	}
+
 
 	
 	/* startup message */
@@ -887,7 +934,7 @@ int main(int argc, char **argv)
 	ret = do_logging();
 
 main_exit:
-	debug("uplogd finalization & exit");
+	debug("finalization & exit");
 	exit_uplogd(ret);
 
 }
