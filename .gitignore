@@ -3,6 +3,7 @@
 uplogd
 uplogger
 libuplogger.a
+autoscan.log
 
 aclocal.m4
 autom4te.cache/
