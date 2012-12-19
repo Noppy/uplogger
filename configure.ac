@@ -24,7 +24,7 @@ AC_TYPE_PID_T
 # Checks for library functions.
 AC_FUNC_FORK
 AC_FUNC_MALLOC
-#AC_FUNC_STRNLEN
+AC_FUNC_STRNLEN
 AC_CHECK_FUNCS([dup2 getcwd gethostname memset realpath select setlocale socket strerror])
 
 

@@ -879,7 +879,9 @@ int main(int argc, char **argv)
 		ret = EXIT_FAILURE;
 		goto main_exit;
 	}
-	debug_print();
+	if( util_param.debug){
+		debug_print();
+	}
 
 	/* check log&run directory permission */
 	char *p[] = { param.logfile, param.pidfile, param.sockfile };
