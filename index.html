@@ -35,40 +35,37 @@
 
 <p>uploggerは、シェルスクリプトなどユーザ作成ツール向けのメッセージロギングシステムです。
 uploggerは、下記２つのコマンドより構成されています。
-<lu>
-<li>サーバデーモンの"uplogd"</li>
-<li>メッセージ登録用のコマンドである"uplogger"</li>
-</lu>
+　　- サーバデーモンの"uplogd"
+　　- メッセージ登録用のコマンドである"uplogger"
 また加えて、C言語用のライブラリも提供しています。<br>
 (libuplogger.aライブラリ)
 </p>
 
 <h3>ダウンロードデータ</h3>
-<lu>
-<li><a href="./source/uplogger-1.0.tar.gz">uplogger-1.0.tar.gz</a></li>
-</lu>
+<p>
+　　-<a href="./source/uplogger-1.0.tar.gz">uplogger-1.0.tar.gz</a>
+</p>
 
-<h3>インストール＆使い方</h3>
-<h4>インストール</h4>
+<h3>使い方
+<p>インストール
 <pre><code>$ ./configure [--prefix=XXXX]
 $ make
 $ su
 # make install
-</code></pre>
-<h4>使い方</h4>
+</code></pre></p>
+
+<p>使い方
 (1) uplogdデーモンを起動(rootユーザにて実行)
 <pre><code># PREFIX/sbin/uplogd
 
-<RHEL環境の場合は下記コマンドで起動可能>
-# service uplogd start
-</code></pre>
+RHEL環境の場合は下記コマンドで起動可能
+# service uplogd start</code></pre>
 
 (2) メッセージを出力する
 <pre><code>$ PREFIX/bin/uplogger "MESSAGE STRINGS"
 
 - check log -
-$ tail PREFIX/var/log/uplog.log
-</code></pre>
+$ tail PREFIX/var/log/uplog.log</code></pre>
 
 
 *Cライブラリの使い方("libuplogger.a")
