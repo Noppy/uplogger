@@ -47,8 +47,7 @@
 　　-<a href="./source/uplogger-1.0.tar.gz">uplogger-1.0.tar.gz</a>
 </p>
 
-<h3>使い方</h3>
-<p>インストール
+<h3>インストール</h3>
 <pre><code>$ ./configure [--prefix=XXXX]
 $ make
 $ su
@@ -60,7 +59,8 @@ $ su
 
 
 
-<p>使い方
+<h3>使い方</h3>
+<p>
 (1) uplogdデーモンを起動(rootユーザにて実行)
 <pre><code># PREFIX/sbin/uplogd
 
@@ -74,9 +74,9 @@ RHEL環境の場合は下記コマンドで起動可能
 $ tail PREFIX/var/log/uplog.log</code></pre>
 </p>
 
-*Cライブラリの使い方("libuplogger.a")
+<p>*Cライブラリの使い方("libuplogger.a")</p>
 
-サンプルコード
+<p>サンプルコード
 <pre><code>
 #include "uplogger.h"
 
@@ -95,10 +95,7 @@ int main()
 
 }
 </code></pre>
-*uplogger()関数の詳細は、"uplogger.h"ファイルを参照。
-
-
-
+*uplogger()関数の詳細は、"uplogger.h"ファイルを参照。</p>
         
       </div>
     </div>
